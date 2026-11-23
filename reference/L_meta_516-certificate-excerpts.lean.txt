@@ -1,0 +1,172 @@
+Upstream: brilliant-hq/pequalnp-proofs@ed8fd3dbdabf46e82ac78a809f8601730854f6d4
+lean/PEqualNP/Outside/L_meta_516.lean
+
+-- Original lines 1-151: live wires and finite operations
+import Mathlib
+import PEqualNP.Defs
+
+-- Adapted from Lewis Watson’s checked circuit analyses for L-meta-515 and L-meta-528.
+
+namespace Live516
+
+variable {α : Type} [DecidableEq α]
+
+-- The ordinary circuit may consult any earlier result.
+def build (ops : α → α → Finset α) (goal : α) : ℕ → Finset α → Prop
+  | 0, available => goal ∈ available
+  | k+1, available => build ops goal k available ∨
+    ∃ a ∈ available, ∃ b ∈ available, a ≠ b ∧
+      ∃ z ∈ ops a b, build ops goal k (insert z available)
+
+-- A live set contains just the wires actually read by the remaining computation.
+def live (ops : α → α → Finset α) (goal : α) : ℕ → Finset α → Prop
+  | 0, s => s = {goal}
+  | k+1, s => live ops goal k s ∨
+    ∃ a ∈ s, ∃ b ∈ s, a ≠ b ∧ ∃ z ∈ ops a b, z ∉ s ∧
+      ∃ rest : Finset α, s = insert a (insert b rest) ∧ live ops goal k (insert z rest)
+
+theorem compress {ops : α → α → Finset α} {goal : α} {k : ℕ} {available : Finset α}
+    (h : build ops goal k available) : ∃ s ⊆ available, live ops goal k s := by
+  induction k generalizing available with
+  | zero =>
+    exact ⟨{goal}, Finset.singleton_subset_iff.mpr h, rfl⟩
+  | succ k ih =>
+    rcases h with skip | ⟨a, ha, b, hb, hab, z, hz, tail⟩
+    · obtain ⟨s, hs, hrun⟩ := ih skip
+      exact ⟨s, hs, Or.inl hrun⟩
+    · obtain ⟨t, ht, hrun⟩ := ih tail
+      by_cases sub : t ⊆ available
+      · exact ⟨t, sub, Or.inl hrun⟩
+      · have hzmem : z ∈ t := by
+          by_contra hn
+          apply sub
+          intro u hu
+          rcases Finset.mem_insert.mp (ht hu) with rfl | ok
+          · exact False.elim (hn hu)
+          · exact ok
+        have hzout : z ∉ available := by
+          intro hh
+          exact sub ((Finset.insert_eq_of_mem hh) ▸ ht)
+        let rest := t.erase z
+        have hrest : rest ⊆ available := by
+          intro u hu
+          have hu' := Finset.mem_erase.mp hu
+          exact (Finset.mem_insert.mp (ht hu'.2)).resolve_left hu'.1
+        let s := insert a (insert b rest)
+        have hs : s ⊆ available := Finset.insert_subset ha (Finset.insert_subset hb hrest)
+        refine ⟨s, hs, Or.inr ⟨a, by simp [s], b, by simp [s], hab, z, hz,
+          fun h => hzout (hs h), rest, rfl, ?_⟩⟩
+        simpa [rest, Finset.insert_erase hzmem] using hrun
+
+theorem live_card {ops : α → α → Finset α} {goal : α} {k : ℕ} {s : Finset α}
+    (h : live ops goal k s) : s.card ≤ k+1 := by
+  induction k generalizing s with
+  | zero => change s = {goal} at h; simp [h]
+  | succ k ih =>
+    rcases h with skip | ⟨a, ha, b, hb, hab, z, hz, hout, rest, rfl, tail⟩
+    · exact (ih skip).trans (by omega)
+    · have hzrest : z ∉ rest := fun hm => hout (by simp [hm])
+      have htail := ih tail
+      rw [Finset.card_insert_of_notMem hzrest] at htail
+      have h₁ := Finset.card_insert_le a (insert b rest)
+      have h₂ := Finset.card_insert_le b rest
+      omega
+
+-- Any pair of rows which the output separates must stay separated at each cut.
+theorem live_separates {ops : α → α → Finset α} {goal : α} (D : α → Prop)
+    (hd : D goal) (hops : ∀ a b, ∀ z ∈ ops a b, D z → D a ∨ D b)
+    {k : ℕ} {s : Finset α} (h : live ops goal k s) : ∃ w ∈ s, D w := by
+  induction k generalizing s with
+  | zero => change s = {goal} at h; exact ⟨goal, by simp [h], hd⟩
+  | succ k ih =>
+    rcases h with skip | ⟨a, ha, b, hb, hab, z, hz, hout, rest, rfl, tail⟩
+    · exact ih skip
+    · obtain ⟨w, hw, hD⟩ := ih tail
+      rcases Finset.mem_insert.mp hw with rfl | hw
+      · rcases hops a b w hz hD with h | h
+        · exact ⟨a, ha, h⟩
+        · exact ⟨b, hb, h⟩
+      · exact ⟨w, by simp [hw], hD⟩
+
+end Live516
+
+namespace Live516
+variable {α : Type} [DecidableEq α] {ops : α → α → Finset α} {goal : α}
+
+theorem first_live {k : ℕ} {s : Finset α} (h : live ops goal (k+1) s) :
+    s = {goal} ∨
+    ∃ a ∈ s, ∃ b ∈ s, a ≠ b ∧ ∃ z ∈ ops a b, z ∉ s ∧
+      ∃ rest : Finset α, s = insert a (insert b rest) ∧ live ops goal k (insert z rest) := by
+  induction k with
+  | zero => exact h
+  | succ k ih =>
+    rcases h with skip | step
+    · rcases ih skip with done | ⟨a,ha,b,hb,hab,z,hz,hn,r,hs,tail⟩
+      · exact .inl done
+      · exact .inr ⟨a,ha,b,hb,hab,z,hz,hn,r,hs,Or.inl tail⟩
+    · exact .inr step
+
+end Live516
+
+namespace Check516
+
+abbrev W := BitVec 320
+def neg (x : W) : W := ~~~x
+def both (x y : W) : W := x &&& y
+def canon (x : W) : W := if x.getLsbD 0 then neg x else x
+def ops (x y : W) : List W :=
+  [canon (both x y), canon (both x (neg y)), canon (both (neg x) y), canon (both (neg x) (neg y))]
+def sep (x : W) := (x ^^^ (x >>> 160)).setWidth 160
+def cuts (ws : List W) : BitVec 160 := ws.foldr (fun w v => sep w ||| v) 0
+def goal : W := canon (((-1 : BitVec 160) ++ (0 : BitVec 160)))
+def singles {α : Type} : List α → List (α × List α)
+  | [] => []
+  | a :: rest => (a,rest) :: (singles rest).map (fun (b,bs) => (b,a :: bs))
+def pairs {α : Type} : List α → List (α × α × List α)
+  | [] => []
+  | a :: rest => (singles rest).map (fun (b,bs) => (a,b,bs)) ++
+      (pairs rest).map (fun (b,c,bs) => (b,c,a :: bs))
+
+def advance (k : ℕ) (next : List W → Bool) (a b : W) (rest : List W) : Bool :=
+  let ds := ops a b
+  let base := cuts rest
+  let attempt := fun (kept : List W) (covered : BitVec 160) =>
+    if kept.length + 1 ≤ k+1 then
+      ds.any (fun z => (covered ||| sep z == -1) && next (z :: kept))
+    else false
+  attempt rest base || attempt (a :: rest) (sep a ||| base) ||
+    attempt (b :: rest) (sep b ||| base) || attempt (a :: b :: rest) (sep a ||| (sep b ||| base))
+
+def search : ℕ → List W → Bool
+  | 0, ws => ws == [goal]
+  | k+1, ws => ws == [goal] || (pairs ws).any (fun (a,b,rest) => advance k (search k) a b rest)
+
+def rawInputs : List W :=
+  [0x8400812124e19391e000c983e0ff8124780ff4cf8400812124608190e000408000458124380454c5,
+   0x24120007326c1e7921364d532c12079f32c8fc002412000000240229201245512c12008b12c85c,
+   0x18381c0639cc70e781c638719c301c39e1c30f0f18381c060984702701c2385194301c09c143090a,
+   0xe0c0e0383e0f80f80607c07e1fc0e03e01fc0ff0e0c0e038360b80d80605c02a0ac0e03600ac06a0,
+   0xff003fc00fff0007f8007fe000ffc001fff00000ff000a400f7e000368007fe000364001fba000,
+   0xff00003ffff0000007ffff800000fffffe000000ff000035bff000000497ed800000c9bf74000000,
+   0xffffffc00000000007ffffffffff000000000000296d36400000000007ffbf7fffba000000000000,
+   0xfffffffffffffffff80000000000000000000000d692c9bfffffdbfdd00000000000000000000000]
+
+def inputs := rawInputs.map canon
+
+
+-- Original lines 1070-1080: checked search implies the lower bound
+theorem lower_of_front (table : List Claim) (hint : Nat → Option Hint) (depth : Nat)
+    (ht : table.all goodClaim = true) (check : front table hint depth 11 4 inputs = false)
+    (s : ℕ) (h : PEqualNP.MetaComplexity.HasCircuitSize 8 graph s) : 12 ≤ s := by
+  by_contra! hs
+  obtain ⟨C,hg,hsize,he⟩ := h
+  have hl : C.gates.length ≤ 11 := by change C.gates.length ≤ s at hsize; omega
+  have searched := front_complete ht hint depth 11 inputs 4 (by decide) (by decide)
+    (extend_live hl (input_live _ (get_build C hg he)))
+  exact Bool.noConfusion (check.symm.trans searched)
+
+end Check516
+
+-- Original lines 3006 onward: exact exported theorem
+theorem PEqualNP.Outside.L_meta_516 : ∀ s : ℕ, PEqualNP.MetaComplexity.HasCircuitSize 8 (fun x : Fin 8 → Bool => (x 0 && x 2) || (x 2 && x 3) || (x 3 && x 1) || (x 0 && x 4) || (x 4 && x 5) || (x 5 && x 1) || (x 0 && x 6) || (x 6 && x 7) || (x 7 && x 1)) s → 12 ≤ s := by
+  exact Check516.lower_of_front _ _ _ Check516.all_claims Check516.all_front
