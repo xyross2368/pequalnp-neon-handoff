@@ -1,0 +1,22 @@
+name = "pequalnp"
+defaultTargets = ["PEqualNP"]
+
+# Mathlib is pinned to one commit (the v4.36.0 release). The Lean version in
+# lean-toolchain is the one that commit names. Change both together or neither.
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "fc4f59e577feb1a4956671bc04ac18aaaf8cd842"
+
+[[lean_lib]]
+name = "PEqualNP"
+
+# Fixtures for the checker's own suite (tools/check-lean.test.mjs). Never a default target.
+[[lean_lib]]
+name = "CheckerSuite"
+
+# The verifier half of the checker (tools/check-lean.mjs runs it). Compiled, never interpreted.
+[[lean_exe]]
+name = "checklemma"
+root = "CheckLemma"
+supportInterpreter = true

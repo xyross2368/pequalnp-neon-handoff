@@ -1,0 +1,155 @@
+Upstream: brilliant-hq/pequalnp-proofs@ed8fd3dbdabf46e82ac78a809f8601730854f6d4
+lean/PEqualNP/Outside/L_meta_522.lean
+
+-- Original lines 1405–1411: graph assumptions
+private def Girth7 {n : ℕ} (G : SimpleGraph (Fin n)) : Prop :=
+  ∀ (v : Fin n) (w : G.Walk v v), w.IsCycle → 7 ≤ w.length
+
+private def Branch7 {n : ℕ} (G : SimpleGraph (Fin n)) : Prop :=
+  ∀ u v : Fin n, u ≠ v → 3 ≤ (G.neighborSet u).ncard → 3 ≤ (G.neighborSet v).ncard →
+    ∀ p : G.Walk u v, 7 ≤ p.length
+
+
+-- Original lines 1490–1568: six consecutive degree-two vertices
+private lemma cycle_deg2_path {n : ℕ} (G : SimpleGraph (Fin n))
+    (hNotAcyc : ¬ G.IsAcyclic) (hG : Girth7 G) (hB : Branch7 G) :
+    ∃ (p₀ p₁ p₂ p₃ p₄ p₅ p₆ p₇ : Fin n),
+      (p₀ ≠ p₁ ∧ p₀ ≠ p₂ ∧ p₀ ≠ p₃ ∧ p₀ ≠ p₄ ∧ p₀ ≠ p₅ ∧ p₀ ≠ p₆) ∧
+      (p₇ ≠ p₁ ∧ p₇ ≠ p₂ ∧ p₇ ≠ p₃ ∧ p₇ ≠ p₄ ∧ p₇ ≠ p₅ ∧ p₇ ≠ p₆) ∧
+      (p₁ ≠ p₂ ∧ p₁ ≠ p₃ ∧ p₁ ≠ p₄ ∧ p₁ ≠ p₅ ∧ p₁ ≠ p₆ ∧
+       p₂ ≠ p₃ ∧ p₂ ≠ p₄ ∧ p₂ ≠ p₅ ∧ p₂ ≠ p₆ ∧
+       p₃ ≠ p₄ ∧ p₃ ≠ p₅ ∧ p₃ ≠ p₆ ∧
+       p₄ ≠ p₅ ∧ p₄ ≠ p₆ ∧
+       p₅ ≠ p₆) ∧
+      (∀ w, G.Adj p₁ w ↔ w = p₀ ∨ w = p₂) ∧
+      (∀ w, G.Adj p₂ w ↔ w = p₁ ∨ w = p₃) ∧
+      (∀ w, G.Adj p₃ w ↔ w = p₂ ∨ w = p₄) ∧
+      (∀ w, G.Adj p₄ w ↔ w = p₃ ∨ w = p₅) ∧
+      (∀ w, G.Adj p₅ w ↔ w = p₄ ∨ w = p₆) ∧
+      (∀ w, G.Adj p₆ w ↔ w = p₅ ∨ w = p₇) := by
+  have hex_cyc : ∃ (v₀ : Fin n) (w₀ : G.Walk v₀ v₀), w₀.IsCycle := by
+    by_contra hno
+    exact hNotAcyc (fun v w hw => hno ⟨v, w, hw⟩)
+  obtain ⟨v₀, w₀, hw₀⟩ := hex_cyc
+  have hex_rot : ∃ (v : Fin n) (w : G.Walk v v), w.IsCycle ∧
+      ∀ i : ℕ, 1 ≤ i → i ≤ 6 → (G.neighborSet (w.getVert i)).ncard ≤ 2 := by
+    by_cases hbr : ∃ u ∈ w₀.support, 3 ≤ (G.neighborSet u).ncard
+    · obtain ⟨u, hu, hdu⟩ := hbr
+      refine ⟨u, w₀.rotate u hu, hw₀.rotate hu, ?_⟩
+      intro i hi1 hi6
+      have hlen : 7 ≤ (w₀.rotate u hu).length := hG u (w₀.rotate u hu) (hw₀.rotate hu)
+      have hne : u ≠ (w₀.rotate u hu).getVert i := by
+        intro heq
+        have h0 : (w₀.rotate u hu).getVert 0 = (w₀.rotate u hu).getVert i := by simpa using heq
+        have := cycle_getVert_inj (w₀.rotate u hu) (hw₀.rotate hu) 0 i (by omega) (by omega) h0
+        omega
+      by_contra hge
+      have h3 : 3 ≤ (G.neighborSet ((w₀.rotate u hu).getVert i)).ncard := by omega
+      have hwalk := hB u ((w₀.rotate u hu).getVert i) hne hdu h3 (walkPrefix (w₀.rotate u hu) i)
+      rw [walkPrefix_length (w₀.rotate u hu) i (by omega)] at hwalk
+      omega
+    · refine ⟨v₀, w₀, hw₀, ?_⟩
+      intro i hi1 hi6
+      have hlen : 7 ≤ w₀.length := hG v₀ w₀ hw₀
+      have hmem : w₀.getVert i ∈ w₀.support := SimpleGraph.Walk.getVert_mem_support w₀ (by omega)
+      have hlt : ¬ (3 ≤ (G.neighborSet (w₀.getVert i)).ncard) := fun h3 => hbr ⟨_, hmem, h3⟩
+      omega
+  obtain ⟨v, w, hw, hdeg⟩ := hex_rot
+  have hlen : 7 ≤ w.length := hG v w hw
+  have hinj : ∀ i j, i < 7 → j < 7 → i ≠ j → w.getVert i ≠ w.getVert j :=
+    fun i j hi hj hne heq => hne (cycle_getVert_inj w hw i j (by omega) (by omega) heq)
+  have hne7 : ∀ i, 1 ≤ i → i ≤ 6 → w.getVert 7 ≠ w.getVert i := by
+    intro i hi1 hi6 heq
+    by_cases h7 : 7 < w.length
+    · have := cycle_getVert_inj w hw 7 i h7 (by omega) heq
+      omega
+    · have hl7 : w.length = 7 := by omega
+      have h0 : w.getVert 7 = w.getVert 0 := by rw [← hl7]; simp
+      rw [h0] at heq
+      exact hinj 0 i (by omega) (by omega) (by omega) heq
+  have hadj : ∀ i, i < 7 → G.Adj (w.getVert i) (w.getVert (i + 1)) :=
+    fun i hi => SimpleGraph.Walk.adj_getVert_succ w (by omega)
+  refine ⟨w.getVert 0, w.getVert 1, w.getVert 2, w.getVert 3, w.getVert 4, w.getVert 5, w.getVert 6, w.getVert 7,
+    ⟨hinj 0 1 (by omega) (by omega) (by omega), hinj 0 2 (by omega) (by omega) (by omega),
+     hinj 0 3 (by omega) (by omega) (by omega), hinj 0 4 (by omega) (by omega) (by omega),
+     hinj 0 5 (by omega) (by omega) (by omega), hinj 0 6 (by omega) (by omega) (by omega)⟩,
+    ⟨hne7 1 (by omega) (by omega), hne7 2 (by omega) (by omega), hne7 3 (by omega) (by omega),
+     hne7 4 (by omega) (by omega), hne7 5 (by omega) (by omega), hne7 6 (by omega) (by omega)⟩,
+    ⟨hinj 1 2 (by omega) (by omega) (by omega), hinj 1 3 (by omega) (by omega) (by omega),
+     hinj 1 4 (by omega) (by omega) (by omega), hinj 1 5 (by omega) (by omega) (by omega),
+     hinj 1 6 (by omega) (by omega) (by omega), hinj 2 3 (by omega) (by omega) (by omega),
+     hinj 2 4 (by omega) (by omega) (by omega), hinj 2 5 (by omega) (by omega) (by omega),
+     hinj 2 6 (by omega) (by omega) (by omega), hinj 3 4 (by omega) (by omega) (by omega),
+     hinj 3 5 (by omega) (by omega) (by omega), hinj 3 6 (by omega) (by omega) (by omega),
+     hinj 4 5 (by omega) (by omega) (by omega), hinj 4 6 (by omega) (by omega) (by omega),
+     hinj 5 6 (by omega) (by omega) (by omega)⟩,
+    deg2_exact G _ _ _ (hinj 0 2 (by omega) (by omega) (by omega)) (hadj 0 (by omega)).symm (hadj 1 (by omega)) (hdeg 1 (by omega) (by omega)),
+    deg2_exact G _ _ _ (hinj 1 3 (by omega) (by omega) (by omega)) (hadj 1 (by omega)).symm (hadj 2 (by omega)) (hdeg 2 (by omega) (by omega)),
+    deg2_exact G _ _ _ (hinj 2 4 (by omega) (by omega) (by omega)) (hadj 2 (by omega)).symm (hadj 3 (by omega)) (hdeg 3 (by omega) (by omega)),
+    deg2_exact G _ _ _ (hinj 3 5 (by omega) (by omega) (by omega)) (hadj 3 (by omega)).symm (hadj 4 (by omega)) (hdeg 4 (by omega) (by omega)),
+    deg2_exact G _ _ _ (hinj 4 6 (by omega) (by omega) (by omega)) (hadj 4 (by omega)).symm (hadj 5 (by omega)) (hdeg 5 (by omega) (by omega)),
+    deg2_exact G _ _ _ (hne7 5 (by omega) (by omega)).symm (hadj 5 (by omega)).symm (hadj 6 (by omega)) (hdeg 6 (by omega) (by omega))⟩
+
+
+-- Original lines 6171–6224: use in the induction and gate accounting
+          obtain ⟨p₀, p₁, p₂, p₃, p₄, p₅, p₆, p₇, hne0, hne7, hne16, hn1, hn2, hn3, hn4, hn5, hn6⟩ :=
+            cycle_deg2_path G hAcyc hG hB
+          have hminC : ∀ s' < C.gates.length, ¬ HasCircuitSize (n + k) (forestFun G ∅ g) s' := by
+            rw [hlenC]; exact hmin
+          obtain ⟨v, hv, hstep⟩ := cycle_elim_step G g hg_nc C hnok hfunC hminC hmax
+            p₀ p₁ p₂ p₃ p₄ p₅ p₆ p₇ hne0 hne7 hne16 hn1 hn2 hn3 hn4 hn5 hn6
+          obtain ⟨h12, h13, h14, h15, h16, h23, h24, h25, h26, h34, h35, h36, h45, h46, h56⟩ := hne16
+          have hv_local : ∃ u' u w w' : Fin n,
+              u' ≠ v ∧ v ≠ w' ∧ u ≠ w ∧ u ≠ w' ∧
+              (∀ z, G.Adj v z ↔ z = u ∨ z = w) ∧
+              (∀ z, G.Adj u z ↔ z = u' ∨ z = v) ∧
+              (∀ z, G.Adj w z ↔ z = v ∨ z = w') := by
+            simp only [Finset.mem_insert, Finset.mem_singleton] at hv
+            rcases hv with rfl | rfl | rfl | rfl
+            · exact ⟨p₀, p₁, p₃, p₄, hne0.2.1, h24, h13, h14, hn2, hn1, hn3⟩
+            · exact ⟨p₁, p₂, p₄, p₅, h13, h35, h24, h25, hn3, hn2, hn4⟩
+            · exact ⟨p₂, p₃, p₅, p₆, h24, h46, h35, h36, hn4, hn3, hn5⟩
+            · exact ⟨p₃, p₄, p₆, p₇, h35, hne7.2.2.2.2.1.symm, h46, hne7.2.2.2.1.symm, hn5, hn4, hn6⟩
+          obtain ⟨u', u, w, w', hu'v, hvw', huw, huw', hv_nbr, hu_nbr, hw_nbr⟩ := hv_local
+          rcases hstep with ⟨hs3, hC0⟩ | ⟨hs4, hC1⟩
+          · rw [hlenC] at hs3 hC0
+            rw [forestFun_update_deg2_false G g v] at hC0
+            obtain ⟨t₀, hvc₀⟩ := hasMinVC_exists (deleteVertexEdges G v)
+            have ht₀ := hasMinVC_deleteVertex_le G v hvc hvc₀
+            have hedge := edgeFinset_card_deleteVertex_deg2 G u v w
+              ((hv_nbr u).2 (Or.inl rfl)).symm ((hv_nbr w).2 (Or.inr rfl)) huw.symm (fun z hz => (hv_nbr z).1 hz)
+            have hih := ih (s - 3) (by omega) (deleteVertexEdges G v) ∅
+              (girth7_anti (deleteVertexEdges_le G v) hG)
+              (branch7_anti (deleteVertexEdges_le G v) hB)
+              (by simp) hvc₀ hC0
+            simp only [Finset.card_empty, zero_add] at hih ⊢
+            omega
+          · rw [hlenC] at hs4 hC1
+            rw [forestFun_update_deg2_true G g u v w hv_nbr] at hC1
+            set G₁ := deleteVertexEdges (deleteVertexEdges G u) w with hG₁
+            have hG₁_le : G₁ ≤ G := le_trans (deleteVertexEdges_le _ w) (deleteVertexEdges_le G u)
+            obtain ⟨t₁, hvc₁⟩ := hasMinVC_exists G₁
+            have ht₁ := hasMinVC_deletePair_le G u w hvc hvc₁
+            have hedge := edgeFinset_card_deletePair_deg2 G u' u v w w' hu'v hvw' huw huw' hu_nbr hw_nbr
+            rw [← hG₁] at hedge
+            have hA1_iso : ∀ a ∈ ({u, w} : Finset (Fin n)), ∀ z : Fin n, ¬ G₁.Adj a z := by
+              intro a ha z h
+              simp only [Finset.mem_insert, Finset.mem_singleton] at ha
+              rcases ha with rfl | rfl
+              · exact h.1.2.1 rfl
+              · exact h.2.1 rfl
+            have hih := ih (s - 4) (by omega) G₁ {u, w}
+              (girth7_anti hG₁_le hG) (branch7_anti hG₁_le hB) hA1_iso hvc₁ hC1
+            have hcardA : ({u, w} : Finset (Fin n)).card = 2 := by
+              rw [Finset.card_insert_of_notMem (by simp [huw]), Finset.card_singleton]
+            rw [hcardA] at hih
+            simp only [Finset.card_empty, zero_add]
+            omega
+
+
+-- Original lines 6225 onward: exported theorem
+theorem PEqualNP.Outside.L_meta_522 :
+    ∀ (n k c t s : ℕ) (G : SimpleGraph (Fin n)) [DecidableRel G.Adj] (A : Finset (Fin n)) (g : (Fin k → Bool) → Bool), (∀ (v : Fin n) (w : G.Walk v v), w.IsCycle → 7 ≤ w.length) → (∀ u v : Fin n, u ≠ v → 3 ≤ (G.neighborSet u).ncard → 3 ≤ (G.neighborSet v).ncard → ∀ p : G.Walk u v, 7 ≤ p.length) → (∀ a ∈ A, ∀ v : Fin n, ¬ G.Adj a v) → (A.Nonempty ∨ ∃ u v : Fin n, G.Adj u v) → (∃ y y' : Fin k → Bool, g y ≠ g y') → (∀ r : ℕ, PEqualNP.MetaComplexity.HasCircuitSize k g r ↔ c ≤ r) → (∃ S : Finset (Fin n), (∀ u v : Fin n, G.Adj u v → u ∈ S ∨ v ∈ S) ∧ S.card = t) → (∀ S : Finset (Fin n), (∀ u v : Fin n, G.Adj u v → u ∈ S ∨ v ∈ S) → t ≤ S.card) → (PEqualNP.MetaComplexity.HasCircuitSize (n + k) (fun x : Fin (n + k) → Bool => decide ((∃ a ∈ A, x (Fin.castAdd k a) = true) ∨ ∃ u v : Fin n, G.Adj u v ∧ x (Fin.castAdd k u) = true ∧ x (Fin.castAdd k v) = true) || g (fun j : Fin k => x (Fin.natAdd n j))) s ↔ A.card + G.edgeFinset.card + t + c ≤ s) := by
+  intro n k c t s G _ A g hG hB hA_iso _ hg_nc hg_sz hvc_ex hvc_min
+  exact ⟨lower_bound_aux hg_nc hg_sz s G A hG hB hA_iso ⟨hvc_ex, hvc_min⟩,
+    upper_bound_aux G A g hg_nc hg_sz hvc_ex⟩

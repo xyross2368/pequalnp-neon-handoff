@@ -1,0 +1,7 @@
+Use only the attached GitHub repository. Start by reading README.md and reply with its packet ID and the three path lengths in the concrete test graph from task/FINDINGS.md. If you can see filenames but cannot read their contents, stop and tell me.
+
+Read task/STATEMENT.lean.txt for the exact goal, task/BRIEF.md for the circuit model, and task/FINDINGS.md for what has already been checked in Lean. Consult the pinned reference sources when a definition matters.
+
+Try one focused mathematical route toward L-meta-519. Can a minimum circuit save a fourth gate in a degree-three zero restriction when the vertex belongs to a minimum cover, or can a different restriction or invariant avoid that need? State exactly what hypotheses your argument uses. Account for shared gates, reconvergent paths, and NOT gates. If you introduce a normal form, justify the size-preserving transformation. Use the ten-vertex example to stress-test the proposed step.
+
+Return a short handoff for a separate Lean implementation agent. Give the strongest precise claim you can justify, its argument, and the smallest lemma to formalize first. Specify types, quantifiers, and dependencies where they matter. Flag any unproved step. If the route fails, give the smallest concrete obstruction you found and explain whether it blocks the proof strategy or refutes the posted statement. Treat local diagnostics as evidence within their stated scope. Do not claim a new proof has passed Lean. Keep this to one serious attempt and about 1,000 words.
